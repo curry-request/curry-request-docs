@@ -1,0 +1,42 @@
+{
+  "name": "curry-request-docs",
+  "version": "1.0.0",
+  "description": "Curry Request Documentation ======",
+  "main": "snowpack.config.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "site-dev": "snowpack dev",
+    "site-prod": "webpack"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/curry-request/curry-request-docs.git"
+  },
+  "author": "friki",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/curry-request/curry-request-docs/issues"
+  },
+  "homepage": "https://github.com/curry-request/curry-request-docs#readme",
+  "dependencies": {
+    "@codemirror/commands": "^0.18.3",
+    "@codemirror/gutter": "^0.18.4",
+    "@codemirror/highlight": "^0.18.4",
+    "@codemirror/history": "^0.18.1",
+    "@codemirror/lang-javascript": "^0.18.0",
+    "@codemirror/state": "^0.18.7",
+    "@codemirror/view": "^0.18.19",
+    "css-loader": "^6.2.0",
+    "curry-request": "^1.1.0",
+    "html-webpack-plugin": "^5.3.2",
+    "marked": "^3.0.0",
+    "modern-normalize": "^1.1.0",
+    "snowpack": "^3.8.3",
+    "style-loader": "^3.2.1",
+    "webpack": "^5.50.0",
+    "webpack-cli": "^4.7.2"
+  }
+}
