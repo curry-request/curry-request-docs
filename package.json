@@ -8,7 +8,8 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "site-dev": "snowpack dev",
+	"compile-md-examples": "node ../curry-request-docs/mdParsingScript.mjs",
+	"site-dev": "snowpack dev",
     "site-prod": "webpack"
   },
   "repository": {

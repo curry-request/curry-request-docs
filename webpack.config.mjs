@@ -5,7 +5,7 @@ import HtmlWebpackPlugin from 'html-webpack-plugin'
 
 const url = new URL(import.meta.url)
 const dir = path.dirname(url.pathname)
-const packageJson = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), "utf8"))
+const packageJson = JSON.parse(fs.readFileSync(path.join(dir, 'node_modules/curry-request/package.json'), "utf8"))
 
 class Stripper {
   apply (compiler) {
