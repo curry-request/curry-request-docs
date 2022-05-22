@@ -8,8 +8,8 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-	"compile-md-examples": "node ../curry-request-docs/mdParsingScript.mjs",
-	"site-dev": "snowpack dev",
+    "compile-md-examples": "node ../curry-request-docs/mdParsingScript.mjs",
+    "site-dev": "snowpack dev",
     "site-prod": "webpack"
   },
   "repository": {
@@ -31,7 +31,7 @@
     "@codemirror/state": "^0.18.7",
     "@codemirror/view": "^0.18.19",
     "css-loader": "^6.2.0",
-    "curry-request": "^1.1.0",
+    "curry-request": "^2.0.0",
     "html-webpack-plugin": "^5.3.2",
     "marked": "^3.0.0",
     "modern-normalize": "^1.1.0",
