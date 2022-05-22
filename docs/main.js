@@ -43,12 +43,12 @@ options.setAttributes = (_style_loader_dist_runtime_setAttributesWithoutAttribut
 options.domAPI = (_style_loader_dist_runtime_styleDomAPI_js__WEBPACK_IMPORTED_MODULE_1___default());
 options.insertStyleElement = (_style_loader_dist_runtime_insertStyleElement_js__WEBPACK_IMPORTED_MODULE_4___default());
 
-var update = _style_loader_dist_runtime_injectStylesIntoStyleTag_js__WEBPACK_IMPORTED_MODULE_0___default()(_css_loader_dist_cjs_js_modern_normalize_css__WEBPACK_IMPORTED_MODULE_6__.default, options);
+var update = _style_loader_dist_runtime_injectStylesIntoStyleTag_js__WEBPACK_IMPORTED_MODULE_0___default()(_css_loader_dist_cjs_js_modern_normalize_css__WEBPACK_IMPORTED_MODULE_6__["default"], options);
 
 
 
 
-       /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (_css_loader_dist_cjs_js_modern_normalize_css__WEBPACK_IMPORTED_MODULE_6__.default && _css_loader_dist_cjs_js_modern_normalize_css__WEBPACK_IMPORTED_MODULE_6__.default.locals ? _css_loader_dist_cjs_js_modern_normalize_css__WEBPACK_IMPORTED_MODULE_6__.default.locals : undefined);
+       /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (_css_loader_dist_cjs_js_modern_normalize_css__WEBPACK_IMPORTED_MODULE_6__["default"] && _css_loader_dist_cjs_js_modern_normalize_css__WEBPACK_IMPORTED_MODULE_6__["default"].locals ? _css_loader_dist_cjs_js_modern_normalize_css__WEBPACK_IMPORTED_MODULE_6__["default"].locals : undefined);
 
 
 /***/ }),
@@ -58,13 +58,13 @@ var update = _style_loader_dist_runtime_injectStylesIntoStyleTag_js__WEBPACK_IMP
 "use strict";
 
 
-var stylesInDom = [];
+var stylesInDOM = [];
 
 function getIndexByIdentifier(identifier) {
   var result = -1;
 
-  for (var i = 0; i < stylesInDom.length; i++) {
-    if (stylesInDom[i].identifier === identifier) {
+  for (var i = 0; i < stylesInDOM.length; i++) {
+    if (stylesInDOM[i].identifier === identifier) {
       result = i;
       break;
     }
@@ -83,20 +83,24 @@ function modulesToDom(list, options) {
     var count = idCountMap[id] || 0;
     var identifier = "".concat(id, " ").concat(count);
     idCountMap[id] = count + 1;
-    var index = getIndexByIdentifier(identifier);
+    var indexByIdentifier = getIndexByIdentifier(identifier);
     var obj = {
       css: item[1],
       media: item[2],
-      sourceMap: item[3]
+      sourceMap: item[3],
+      supports: item[4],
+      layer: item[5]
     };
 
-    if (index !== -1) {
-      stylesInDom[index].references++;
-      stylesInDom[index].updater(obj);
+    if (indexByIdentifier !== -1) {
+      stylesInDOM[indexByIdentifier].references++;
+      stylesInDOM[indexByIdentifier].updater(obj);
     } else {
-      stylesInDom.push({
+      var updater = addElementStyle(obj, options);
+      options.byIndex = i;
+      stylesInDOM.splice(i, 0, {
         identifier: identifier,
-        updater: addStyle(obj, options),
+        updater: updater,
         references: 1
       });
     }
@@ -107,12 +111,13 @@ function modulesToDom(list, options) {
   return identifiers;
 }
 
-function addStyle(obj, options) {
+function addElementStyle(obj, options) {
   var api = options.domAPI(options);
   api.update(obj);
-  return function updateStyle(newObj) {
+
+  var updater = function updater(newObj) {
     if (newObj) {
-      if (newObj.css === obj.css && newObj.media === obj.media && newObj.sourceMap === obj.sourceMap) {
+      if (newObj.css === obj.css && newObj.media === obj.media && newObj.sourceMap === obj.sourceMap && newObj.supports === obj.supports && newObj.layer === obj.layer) {
         return;
       }
 
@@ -121,6 +126,8 @@ function addStyle(obj, options) {
       api.remove();
     }
   };
+
+  return updater;
 }
 
 module.exports = function (list, options) {
@@ -133,7 +140,7 @@ module.exports = function (list, options) {
     for (var i = 0; i < lastIdentifiers.length; i++) {
       var identifier = lastIdentifiers[i];
       var index = getIndexByIdentifier(identifier);
-      stylesInDom[index].references--;
+      stylesInDOM[index].references--;
     }
 
     var newLastIdentifiers = modulesToDom(newList, options);
@@ -143,10 +150,10 @@ module.exports = function (list, options) {
 
       var _index = getIndexByIdentifier(_identifier);
 
-      if (stylesInDom[_index].references === 0) {
-        stylesInDom[_index].updater();
+      if (stylesInDOM[_index].references === 0) {
+        stylesInDOM[_index].updater();
 
-        stylesInDom.splice(_index, 1);
+        stylesInDOM.splice(_index, 1);
       }
     }
 
@@ -162,16 +169,38 @@ module.exports = function (list, options) {
 
 
 /* istanbul ignore next  */
-function apply(style, options, obj) {
-  var css = obj.css;
-  var media = obj.media;
-  var sourceMap = obj.sourceMap;
+function apply(styleElement, options, obj) {
+  var css = "";
 
-  if (media) {
-    style.setAttribute("media", media);
-  } else {
-    style.removeAttribute("media");
+  if (obj.supports) {
+    css += "@supports (".concat(obj.supports, ") {");
   }
+
+  if (obj.media) {
+    css += "@media ".concat(obj.media, " {");
+  }
+
+  var needLayer = typeof obj.layer !== "undefined";
+
+  if (needLayer) {
+    css += "@layer".concat(obj.layer.length > 0 ? " ".concat(obj.layer) : "", " {");
+  }
+
+  css += obj.css;
+
+  if (needLayer) {
+    css += "}";
+  }
+
+  if (obj.media) {
+    css += "}";
+  }
+
+  if (obj.supports) {
+    css += "}";
+  }
+
+  var sourceMap = obj.sourceMap;
 
   if (sourceMap && typeof btoa !== "undefined") {
     css += "\n/*# sourceMappingURL=data:application/json;base64,".concat(btoa(unescape(encodeURIComponent(JSON.stringify(sourceMap)))), " */");
@@ -180,28 +209,28 @@ function apply(style, options, obj) {
   /* istanbul ignore if  */
 
 
-  options.styleTagTransform(css, style);
+  options.styleTagTransform(css, styleElement, options.options);
 }
 
-function removeStyleElement(style) {
+function removeStyleElement(styleElement) {
   // istanbul ignore if
-  if (style.parentNode === null) {
+  if (styleElement.parentNode === null) {
     return false;
   }
 
-  style.parentNode.removeChild(style);
+  styleElement.parentNode.removeChild(styleElement);
 }
 /* istanbul ignore next  */
 
 
 function domAPI(options) {
-  var style = options.insertStyleElement(options);
+  var styleElement = options.insertStyleElement(options);
   return {
     update: function update(obj) {
-      apply(style, options, obj);
+      apply(styleElement, options, obj);
     },
     remove: function remove() {
-      removeStyleElement(style);
+      removeStyleElement(styleElement);
     }
   };
 }
@@ -261,11 +290,11 @@ module.exports = insertBySelector;
 
 
 /* istanbul ignore next  */
-function setAttributesWithoutAttributes(style) {
+function setAttributesWithoutAttributes(styleElement) {
   var nonce =  true ? __webpack_require__.nc : 0;
 
   if (nonce) {
-    style.setAttribute("nonce", nonce);
+    styleElement.setAttribute("nonce", nonce);
   }
 }
 
@@ -280,10 +309,10 @@ module.exports = setAttributesWithoutAttributes;
 
 /* istanbul ignore next  */
 function insertStyleElement(options) {
-  var style = document.createElement("style");
-  options.setAttributes(style, options.attributes);
-  options.insert(style);
-  return style;
+  var element = document.createElement("style");
+  options.setAttributes(element, options.attributes);
+  options.insert(element, options.options);
+  return element;
 }
 
 module.exports = insertStyleElement;
@@ -296,15 +325,15 @@ module.exports = insertStyleElement;
 
 
 /* istanbul ignore next  */
-function styleTagTransform(css, style) {
-  if (style.styleSheet) {
-    style.styleSheet.cssText = css;
+function styleTagTransform(css, styleElement) {
+  if (styleElement.styleSheet) {
+    styleElement.styleSheet.cssText = css;
   } else {
-    while (style.firstChild) {
-      style.removeChild(style.firstChild);
+    while (styleElement.firstChild) {
+      styleElement.removeChild(styleElement.firstChild);
     }
 
-    style.appendChild(document.createTextNode(css));
+    styleElement.appendChild(document.createTextNode(css));
   }
 }
 
@@ -319,11 +348,14 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
-/* harmony import */ var _css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(9);
-/* harmony import */ var _css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var _css_loader_dist_runtime_noSourceMaps_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(9);
+/* harmony import */ var _css_loader_dist_runtime_noSourceMaps_js__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_css_loader_dist_runtime_noSourceMaps_js__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var _css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(10);
+/* harmony import */ var _css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_1__);
 // Imports
 
-var ___CSS_LOADER_EXPORT___ = _css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
+
+var ___CSS_LOADER_EXPORT___ = _css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_1___default()((_css_loader_dist_runtime_noSourceMaps_js__WEBPACK_IMPORTED_MODULE_0___default()));
 // Module
 ___CSS_LOADER_EXPORT___.push([module.id, "/*! modern-normalize v1.1.0 | MIT License | https://github.com/sindresorhus/modern-normalize */\n\n/*\nDocument\n========\n*/\n\n/**\nUse a better box model (opinionated).\n*/\n\n*,\n::before,\n::after {\n\tbox-sizing: border-box;\n}\n\n/**\nUse a more readable tab size (opinionated).\n*/\n\nhtml {\n\t-moz-tab-size: 4;\n\ttab-size: 4;\n}\n\n/**\n1. Correct the line height in all browsers.\n2. Prevent adjustments of font size after orientation changes in iOS.\n*/\n\nhtml {\n\tline-height: 1.15; /* 1 */\n\t-webkit-text-size-adjust: 100%; /* 2 */\n}\n\n/*\nSections\n========\n*/\n\n/**\nRemove the margin in all browsers.\n*/\n\nbody {\n\tmargin: 0;\n}\n\n/**\nImprove consistency of default fonts in all browsers. (https://github.com/sindresorhus/modern-normalize/issues/3)\n*/\n\nbody {\n\tfont-family:\n\t\tsystem-ui,\n\t\t-apple-system, /* Firefox supports this but not yet `system-ui` */\n\t\t'Segoe UI',\n\t\tRoboto,\n\t\tHelvetica,\n\t\tArial,\n\t\tsans-serif,\n\t\t'Apple Color Emoji',\n\t\t'Segoe UI Emoji';\n}\n\n/*\nGrouping content\n================\n*/\n\n/**\n1. Add the correct height in Firefox.\n2. Correct the inheritance of border color in Firefox. (https://bugzilla.mozilla.org/show_bug.cgi?id=190655)\n*/\n\nhr {\n\theight: 0; /* 1 */\n\tcolor: inherit; /* 2 */\n}\n\n/*\nText-level semantics\n====================\n*/\n\n/**\nAdd the correct text decoration in Chrome, Edge, and Safari.\n*/\n\nabbr[title] {\n\ttext-decoration: underline dotted;\n}\n\n/**\nAdd the correct font weight in Edge and Safari.\n*/\n\nb,\nstrong {\n\tfont-weight: bolder;\n}\n\n/**\n1. Improve consistency of default fonts in all browsers. (https://github.com/sindresorhus/modern-normalize/issues/3)\n2. Correct the odd 'em' font sizing in all browsers.\n*/\n\ncode,\nkbd,\nsamp,\npre {\n\tfont-family:\n\t\tui-monospace,\n\t\tSFMono-Regular,\n\t\tConsolas,\n\t\t'Liberation Mono',\n\t\tMenlo,\n\t\tmonospace; /* 1 */\n\tfont-size: 1em; /* 2 */\n}\n\n/**\nAdd the correct font size in all browsers.\n*/\n\nsmall {\n\tfont-size: 80%;\n}\n\n/**\nPrevent 'sub' and 'sup' elements from affecting the line height in all browsers.\n*/\n\nsub,\nsup {\n\tfont-size: 75%;\n\tline-height: 0;\n\tposition: relative;\n\tvertical-align: baseline;\n}\n\nsub {\n\tbottom: -0.25em;\n}\n\nsup {\n\ttop: -0.5em;\n}\n\n/*\nTabular data\n============\n*/\n\n/**\n1. Remove text indentation from table contents in Chrome and Safari. (https://bugs.chromium.org/p/chromium/issues/detail?id=999088, https://bugs.webkit.org/show_bug.cgi?id=201297)\n2. Correct table border color inheritance in all Chrome and Safari. (https://bugs.chromium.org/p/chromium/issues/detail?id=935729, https://bugs.webkit.org/show_bug.cgi?id=195016)\n*/\n\ntable {\n\ttext-indent: 0; /* 1 */\n\tborder-color: inherit; /* 2 */\n}\n\n/*\nForms\n=====\n*/\n\n/**\n1. Change the font styles in all browsers.\n2. Remove the margin in Firefox and Safari.\n*/\n\nbutton,\ninput,\noptgroup,\nselect,\ntextarea {\n\tfont-family: inherit; /* 1 */\n\tfont-size: 100%; /* 1 */\n\tline-height: 1.15; /* 1 */\n\tmargin: 0; /* 2 */\n}\n\n/**\nRemove the inheritance of text transform in Edge and Firefox.\n1. Remove the inheritance of text transform in Firefox.\n*/\n\nbutton,\nselect { /* 1 */\n\ttext-transform: none;\n}\n\n/**\nCorrect the inability to style clickable types in iOS and Safari.\n*/\n\nbutton,\n[type='button'],\n[type='reset'],\n[type='submit'] {\n\t-webkit-appearance: button;\n}\n\n/**\nRemove the inner border and padding in Firefox.\n*/\n\n::-moz-focus-inner {\n\tborder-style: none;\n\tpadding: 0;\n}\n\n/**\nRestore the focus styles unset by the previous rule.\n*/\n\n:-moz-focusring {\n\toutline: 1px dotted ButtonText;\n}\n\n/**\nRemove the additional ':invalid' styles in Firefox.\nSee: https://github.com/mozilla/gecko-dev/blob/2f9eacd9d3d995c937b4251a5557d95d494c9be1/layout/style/res/forms.css#L728-L737\n*/\n\n:-moz-ui-invalid {\n\tbox-shadow: none;\n}\n\n/**\nRemove the padding so developers are not caught out when they zero out 'fieldset' elements in all browsers.\n*/\n\nlegend {\n\tpadding: 0;\n}\n\n/**\nAdd the correct vertical alignment in Chrome and Firefox.\n*/\n\nprogress {\n\tvertical-align: baseline;\n}\n\n/**\nCorrect the cursor style of increment and decrement buttons in Safari.\n*/\n\n::-webkit-inner-spin-button,\n::-webkit-outer-spin-button {\n\theight: auto;\n}\n\n/**\n1. Correct the odd appearance in Chrome and Safari.\n2. Correct the outline style in Safari.\n*/\n\n[type='search'] {\n\t-webkit-appearance: textfield; /* 1 */\n\toutline-offset: -2px; /* 2 */\n}\n\n/**\nRemove the inner padding in Chrome and Safari on macOS.\n*/\n\n::-webkit-search-decoration {\n\t-webkit-appearance: none;\n}\n\n/**\n1. Correct the inability to style clickable types in iOS and Safari.\n2. Change font properties to 'inherit' in Safari.\n*/\n\n::-webkit-file-upload-button {\n\t-webkit-appearance: button; /* 1 */\n\tfont: inherit; /* 2 */\n}\n\n/*\nInteractive\n===========\n*/\n\n/*\nAdd the correct display in Chrome and Safari.\n*/\n\nsummary {\n\tdisplay: list-item;\n}\n", ""]);
 // Exports
@@ -337,41 +369,70 @@ ___CSS_LOADER_EXPORT___.push([module.id, "/*! modern-normalize v1.1.0 | MIT Lice
 "use strict";
 
 
+module.exports = function (i) {
+  return i[1];
+};
+
+/***/ }),
+/* 10 */
+/***/ ((module) => {
+
+"use strict";
+
+
 /*
   MIT License http://www.opensource.org/licenses/mit-license.php
   Author Tobias Koppers @sokra
 */
-// css base code, injected by the css-loader
-// eslint-disable-next-line func-names
 module.exports = function (cssWithMappingToString) {
   var list = []; // return the list of modules as css string
 
   list.toString = function toString() {
     return this.map(function (item) {
-      var content = cssWithMappingToString(item);
+      var content = "";
+      var needLayer = typeof item[5] !== "undefined";
+
+      if (item[4]) {
+        content += "@supports (".concat(item[4], ") {");
+      }
 
       if (item[2]) {
-        return "@media ".concat(item[2], " {").concat(content, "}");
+        content += "@media ".concat(item[2], " {");
+      }
+
+      if (needLayer) {
+        content += "@layer".concat(item[5].length > 0 ? " ".concat(item[5]) : "", " {");
+      }
+
+      content += cssWithMappingToString(item);
+
+      if (needLayer) {
+        content += "}";
+      }
+
+      if (item[2]) {
+        content += "}";
+      }
+
+      if (item[4]) {
+        content += "}";
       }
 
       return content;
     }).join("");
   }; // import a list of modules into the list
-  // eslint-disable-next-line func-names
 
 
-  list.i = function (modules, mediaQuery, dedupe) {
+  list.i = function i(modules, media, dedupe, supports, layer) {
     if (typeof modules === "string") {
-      // eslint-disable-next-line no-param-reassign
-      modules = [[null, modules, ""]];
+      modules = [[null, modules, undefined]];
     }
 
     var alreadyImportedModules = {};
 
     if (dedupe) {
-      for (var i = 0; i < this.length; i++) {
-        // eslint-disable-next-line prefer-destructuring
-        var id = this[i][0];
+      for (var k = 0; k < this.length; k++) {
+        var id = this[k][0];
 
         if (id != null) {
           alreadyImportedModules[id] = true;
@@ -379,19 +440,37 @@ module.exports = function (cssWithMappingToString) {
       }
     }
 
-    for (var _i = 0; _i < modules.length; _i++) {
-      var item = [].concat(modules[_i]);
+    for (var _k = 0; _k < modules.length; _k++) {
+      var item = [].concat(modules[_k]);
 
       if (dedupe && alreadyImportedModules[item[0]]) {
-        // eslint-disable-next-line no-continue
         continue;
       }
 
-      if (mediaQuery) {
-        if (!item[2]) {
-          item[2] = mediaQuery;
+      if (typeof layer !== "undefined") {
+        if (typeof item[5] === "undefined") {
+          item[5] = layer;
         } else {
-          item[2] = "".concat(mediaQuery, " and ").concat(item[2]);
+          item[1] = "@layer".concat(item[5].length > 0 ? " ".concat(item[5]) : "", " {").concat(item[1], "}");
+          item[5] = layer;
+        }
+      }
+
+      if (media) {
+        if (!item[2]) {
+          item[2] = media;
+        } else {
+          item[1] = "@media ".concat(item[2], " {").concat(item[1], "}");
+          item[2] = media;
+        }
+      }
+
+      if (supports) {
+        if (!item[4]) {
+          item[4] = "".concat(supports);
+        } else {
+          item[1] = "@supports (".concat(item[4], ") {").concat(item[1], "}");
+          item[4] = supports;
         }
       }
 
@@ -403,7 +482,7 @@ module.exports = function (cssWithMappingToString) {
 };
 
 /***/ }),
-/* 10 */
+/* 11 */
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -423,7 +502,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _node_modules_style_loader_dist_runtime_insertStyleElement_js__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/__webpack_require__.n(_node_modules_style_loader_dist_runtime_insertStyleElement_js__WEBPACK_IMPORTED_MODULE_4__);
 /* harmony import */ var _node_modules_style_loader_dist_runtime_styleTagTransform_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(7);
 /* harmony import */ var _node_modules_style_loader_dist_runtime_styleTagTransform_js__WEBPACK_IMPORTED_MODULE_5___default = /*#__PURE__*/__webpack_require__.n(_node_modules_style_loader_dist_runtime_styleTagTransform_js__WEBPACK_IMPORTED_MODULE_5__);
-/* harmony import */ var _node_modules_css_loader_dist_cjs_js_style_css__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(11);
+/* harmony import */ var _node_modules_css_loader_dist_cjs_js_style_css__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(12);
 
       
       
@@ -445,16 +524,16 @@ options.setAttributes = (_node_modules_style_loader_dist_runtime_setAttributesWi
 options.domAPI = (_node_modules_style_loader_dist_runtime_styleDomAPI_js__WEBPACK_IMPORTED_MODULE_1___default());
 options.insertStyleElement = (_node_modules_style_loader_dist_runtime_insertStyleElement_js__WEBPACK_IMPORTED_MODULE_4___default());
 
-var update = _node_modules_style_loader_dist_runtime_injectStylesIntoStyleTag_js__WEBPACK_IMPORTED_MODULE_0___default()(_node_modules_css_loader_dist_cjs_js_style_css__WEBPACK_IMPORTED_MODULE_6__.default, options);
+var update = _node_modules_style_loader_dist_runtime_injectStylesIntoStyleTag_js__WEBPACK_IMPORTED_MODULE_0___default()(_node_modules_css_loader_dist_cjs_js_style_css__WEBPACK_IMPORTED_MODULE_6__["default"], options);
 
 
 
 
-       /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (_node_modules_css_loader_dist_cjs_js_style_css__WEBPACK_IMPORTED_MODULE_6__.default && _node_modules_css_loader_dist_cjs_js_style_css__WEBPACK_IMPORTED_MODULE_6__.default.locals ? _node_modules_css_loader_dist_cjs_js_style_css__WEBPACK_IMPORTED_MODULE_6__.default.locals : undefined);
+       /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (_node_modules_css_loader_dist_cjs_js_style_css__WEBPACK_IMPORTED_MODULE_6__["default"] && _node_modules_css_loader_dist_cjs_js_style_css__WEBPACK_IMPORTED_MODULE_6__["default"].locals ? _node_modules_css_loader_dist_cjs_js_style_css__WEBPACK_IMPORTED_MODULE_6__["default"].locals : undefined);
 
 
 /***/ }),
-/* 11 */
+/* 12 */
 /***/ ((module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -462,33 +541,37 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
-/* harmony import */ var _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(9);
-/* harmony import */ var _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var _node_modules_css_loader_dist_runtime_noSourceMaps_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(9);
+/* harmony import */ var _node_modules_css_loader_dist_runtime_noSourceMaps_js__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_node_modules_css_loader_dist_runtime_noSourceMaps_js__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(10);
+/* harmony import */ var _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_1__);
 // Imports
 
-var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
+
+var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_1___default()((_node_modules_css_loader_dist_runtime_noSourceMaps_js__WEBPACK_IMPORTED_MODULE_0___default()));
 // Module
-___CSS_LOADER_EXPORT___.push([module.id, "\n:root {\n  --main-color: #fff;\n  --main-bg: #008700;\n  --shadow-color: rgba(101, 99, 96, 0.36);\n  --primary-color: rgb(79, 75, 73);\n  --header-height: 4rem;\n}\n\n\nheader {\n  letter-spacing: .13rem;\n  background: var(--main-bg);\n  color: var(--main-color);\n  display: flex;\n  flex-wrap: nowrap;\n  position: sticky;\n  padding: .5rem 1rem;\n  height: var(--header-height);\n  justify-content: space-between;\n  top: 0;\n  z-index: 3;\n}\n\nmain{\n  height: calc(100vh - var(--header-height))\n}\n\nmain::after {\n  position: absolute;\n  content: '';\n  top: 0;\n  bottom: 0;\n  left: 50%;\n  width: 1.5rem;\n  z-index: -1;\n  background: #f5f5f5;\n  border-right: 1px solid rgba(0, 0, 0,.1);\n}\n\nmain::before {\n  position: absolute;\n  content: '';\n  top: 0;\n  right: 0;\n  bottom: 0;\n  left: 50%;\n  z-index: -2;\n  background-color: #ddd;\n}\n\n.title {\n  font-family: 'Oswald', sans-serif;\n  margin: 0;\n}\n\n.title-sub{\n  margin: 0;\n}\n\n.github.navbar-icon  {\n  height: 3rem;\n  fill: #fff;\n}\n\n.header-details {\n  display: flex;\n  justify-content: flex-end;\n}\n\n.header-details__version {\n  margin-right: 1rem;\n  padding-right: 1rem;\n  border-right: 1px solid #fff;\n}\n\n.feature {\n  display: flex;\n  flex-wrap: wrap;\n}\n\n.feature p{\n  margin: 0;\n  font-size: .9rem;\n}\n\n.feature__desc {\n  flex: 0 0 50%;\n  padding-right: 2rem;\n  padding-left: 1rem;\n  padding-bottom: 1rem;\n}\n\n.feature__demo {\n  width: 50%;\n  flex: 0 0 50%;\n  background: #ddd;\n  position: relative;\n}\n\n.feature__demo::before {\n  content: '';\n  position: absolute;\n  left: 0;\n  top: 0;\n  bottom: 0;\n  width: 1.5rem;\n  background: #f5f5f5;\n  border-right: 1px solid rgba(0, 0, 0,.1);\n}\n\n.editor-actions {\n  display: flex;\n  justify-content: flex-end;\n}\n\n.editor-actions__btn {\n  margin-top: 1rem;\n  padding: .5rem 1rem;\n  box-shadow: 0px 1rem 3rem var(--shadow-color);\n  border: 0;\n  background-color: var(--primary-color);\n  color: #fff;\n  font-weight: 700;\n  transition: .2s all;\n  cursor: pointer;\n  margin-right: .5rem;\n}\n\n.editor-actions__btn[disabled] {\n  opacity: .3;\n  pointer-events: none;\n}\n\n.editor-actions__btn:hover {\n  transform: scaleX(1.05);\n  opacity: .8;\n}\n\n.editor-actions__btn.run-example {\n  margin-right: 0;\n}\n\n.feature .output {\n  background: #3d3d3d;\n  color: lime;\n  width: 100%;\n  padding: 0 2rem;\n}\n\n.feature .output pre {\n  margin: 0;\n  font-size: .9rem;\n}\n\n\n@media screen and (min-width: 768px) {\n  .feature__desc {\n    padding-left: 2rem;\n  }\n}\n\n@media screen and (min-width: 1024px) {\n  .feature__desc {\n    padding-left: 3rem;\n  }\n}\n", ""]);
+___CSS_LOADER_EXPORT___.push([module.id, "\nbody {\n\tdisplay: initial;\n}\n\n:root {\n  --main-color: #fff;\n  --main-bg: #008700;\n  --shadow-color: rgba(101, 99, 96, 0.36);\n  --primary-color: rgb(79, 75, 73);\n  --header-height: 4rem;\n}\n\n\nheader {\n  letter-spacing: .13rem;\n  background: var(--main-bg);\n  color: var(--main-color);\n  display: flex;\n  flex-wrap: nowrap;\n  position: sticky;\n  padding: .5rem 1rem;\n  height: var(--header-height);\n  justify-content: space-between;\n  top: 0;\n  z-index: 3;\n}\n\nmain{\n  height: calc(100vh - var(--header-height))\n}\n\nmain::after {\n  position: absolute;\n  content: '';\n  top: 0;\n  bottom: 0;\n  left: 50%;\n  width: 1.5rem;\n  z-index: -1;\n  background: #f5f5f5;\n  border-right: 1px solid rgba(0, 0, 0,.1);\n}\n\nmain::before {\n  position: absolute;\n  content: '';\n  top: 0;\n  right: 0;\n  bottom: 0;\n  left: 50%;\n  z-index: -2;\n  background-color: #ddd;\n}\n\n.title {\n  font-family: 'Oswald', sans-serif;\n  margin: 0;\n}\n\n.title-sub{\n  margin: 0;\n}\n\n.github.navbar-icon  {\n  height: 3rem;\n  fill: #fff;\n}\n\n.header-details {\n  display: flex;\n  justify-content: flex-end;\n}\n\n.header-details__version {\n  margin-right: 1rem;\n  padding-right: 1rem;\n  border-right: 1px solid #fff;\n}\n\n.feature {\n  display: flex;\n  flex-wrap: wrap;\n}\n\n.feature p{\n  margin: 0;\n  font-size: .9rem;\n}\n\n.feature__desc {\n  flex: 0 0 50%;\n  padding-right: 2rem;\n  padding-left: 1rem;\n  padding-bottom: 1rem;\n}\n\n.feature__demo {\n  width: 50%;\n  flex: 0 0 50%;\n  background: #ddd;\n  position: relative;\n}\n\n.feature__demo::before {\n  content: '';\n  position: absolute;\n  left: 0;\n  top: 0;\n  bottom: 0;\n  width: 1.5rem;\n  background: #f5f5f5;\n  border-right: 1px solid rgba(0, 0, 0,.1);\n}\n\n.editor-actions {\n  display: flex;\n  justify-content: flex-end;\n}\n\n.editor-actions__btn {\n  margin-top: 1rem;\n  padding: .5rem 1rem;\n  box-shadow: 0px 1rem 3rem var(--shadow-color);\n  border: 0;\n  background-color: var(--primary-color);\n  color: #fff;\n  font-weight: 700;\n  transition: .2s all;\n  cursor: pointer;\n  margin-right: .5rem;\n}\n\n.editor-actions__btn[disabled] {\n  opacity: .3;\n  pointer-events: none;\n}\n\n.editor-actions__btn:hover {\n  transform: scaleX(1.05);\n  opacity: .8;\n}\n\n.editor-actions__btn.run-example {\n  margin-right: 0;\n}\n\n.feature .output {\n  background: #3d3d3d;\n  color: lime;\n  width: 100%;\n  padding: 0 2rem;\n  max-height: 40vh;\n  overflow-y: scroll;\n}\n\n.feature .output pre {\n  margin: 0;\n  font-size: .9rem;\n}\n\n\n@media screen and (min-width: 768px) {\n  .feature__desc {\n    padding-left: 2rem;\n  }\n}\n\n@media screen and (min-width: 1024px) {\n  .feature__desc {\n    padding-left: 3rem;\n  }\n}\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
 
 /***/ }),
-/* 12 */
+/* 13 */
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */ var _lib_index_es_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(13);
-/* harmony import */ var _example_contents_config_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(16);
-/* harmony import */ var _example_contents_actions_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(17);
-/* harmony import */ var _example_contents_http_call_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(18);
-/* harmony import */ var _example_contents_post_payload_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(19);
-/* harmony import */ var _example_contents_jwt_injection_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(20);
-/* harmony import */ var _example_contents_abortion_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(21);
-/* harmony import */ var _example_contents_example_from_motivation_post__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(22);
-/* harmony import */ var _util_js__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(23);
-/* harmony import */ var _Logger_js__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(43);
+/* harmony import */ var curry_request__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(14);
+/* harmony import */ var curry_request__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(curry_request__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var _example_contents_config_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(17);
+/* harmony import */ var _example_contents_actions_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(18);
+/* harmony import */ var _example_contents_http_call_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(19);
+/* harmony import */ var _example_contents_post_payload_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(20);
+/* harmony import */ var _example_contents_jwt_injection_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(21);
+/* harmony import */ var _example_contents_abortion_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(22);
+/* harmony import */ var _example_contents_example_from_motivation_post__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(23);
+/* harmony import */ var _util_js__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(24);
+/* harmony import */ var _Logger_js__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(44);
 
 
 
@@ -527,7 +610,7 @@ const sections = [
   { selector: "example-from-motivation-post", editorDoc: _example_contents_example_from_motivation_post__WEBPACK_IMPORTED_MODULE_7__.doc }
 ]
 
-const logger = new _Logger_js__WEBPACK_IMPORTED_MODULE_9__.default()
+const logger = new _Logger_js__WEBPACK_IMPORTED_MODULE_9__["default"]()
 
 const actionsLogic = ({ selector, editorDoc }) => {
   ;(0,_util_js__WEBPACK_IMPORTED_MODULE_8__.prepareMarkup)(selector)
@@ -563,7 +646,7 @@ const actionsLogic = ({ selector, editorDoc }) => {
           ...console,
           log
         },
-        _lib_index_es_js__WEBPACK_IMPORTED_MODULE_0__.default
+        (curry_request__WEBPACK_IMPORTED_MODULE_0___default())
       )
     })
   }
@@ -592,27 +675,24 @@ sections.forEach(actionsLogic)
 
 
 /***/ }),
-/* 13 */
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+/* 14 */
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
 "use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
-/* harmony export */ });
-/* harmony import */ var cross_fetch__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(14);
-/* harmony import */ var cross_fetch__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(cross_fetch__WEBPACK_IMPORTED_MODULE_0__);
-/* harmony import */ var abort_controller__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(15);
-/* harmony import */ var abort_controller__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(abort_controller__WEBPACK_IMPORTED_MODULE_1__);
 
-
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const cross_fetch_1 = __importDefault(__webpack_require__(15));
+const abort_controller_1 = __importDefault(__webpack_require__(16));
 const request = (baseUrl = "", alternativeFetchImpl) => (baseHeaders) => (method) => (route) => (payload) => (token) => {
     const headers = baseHeaders || {};
     if (token) {
         headers.Authorization = `Bearer ${token}`;
     }
-    const fetch = alternativeFetchImpl || (cross_fetch__WEBPACK_IMPORTED_MODULE_0___default());
-    const abortCtrl = new (abort_controller__WEBPACK_IMPORTED_MODULE_1___default())();
+    const fetch = alternativeFetchImpl || cross_fetch_1.default;
+    const abortCtrl = new abort_controller_1.default();
     const signal = abortCtrl.signal;
     const httpConfig = {
         method,
@@ -629,11 +709,11 @@ const request = (baseUrl = "", alternativeFetchImpl) => (baseHeaders) => (method
     };
     return res;
 };
-/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (request);
+exports["default"] = request;
 
 
 /***/ }),
-/* 14 */
+/* 15 */
 /***/ (function(module, exports) {
 
 var global = typeof self !== 'undefined' ? self : this;
@@ -1175,7 +1255,7 @@ var irrelevant = (function (exports) {
 
   return exports;
 
-}({}));
+})({});
 })(__self__);
 __self__.fetch.ponyfill = true;
 // Remove "polyfill" property added by whatwg-fetch
@@ -1184,7 +1264,7 @@ delete __self__.fetch.polyfill;
 // var ctx = global.fetch ? global : __self__;
 var ctx = __self__; // this line disable service worker support temporarily
 exports = ctx.fetch // To enable: import fetch from 'cross-fetch'
-exports.default = ctx.fetch // For TypeScript consumers without esModuleInterop.
+exports["default"] = ctx.fetch // For TypeScript consumers without esModuleInterop.
 exports.fetch = ctx.fetch // To enable: import {fetch} from 'cross-fetch'
 exports.Headers = ctx.Headers
 exports.Request = ctx.Request
@@ -1193,7 +1273,7 @@ module.exports = exports
 
 
 /***/ }),
-/* 15 */
+/* 16 */
 /***/ ((module) => {
 
 "use strict";
@@ -1209,11 +1289,11 @@ const { AbortController, AbortSignal } =
 
 module.exports = AbortController
 module.exports.AbortSignal = AbortSignal
-module.exports.default = AbortController
+module.exports["default"] = AbortController
 
 
 /***/ }),
-/* 16 */
+/* 17 */
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -1247,7 +1327,7 @@ const del = apiRequest('DELETE')
 
 
 /***/ }),
-/* 17 */
+/* 18 */
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -1262,7 +1342,7 @@ const getTodos = get('/todos/')()
 
 
 /***/ }),
-/* 18 */
+/* 19 */
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -1280,7 +1360,7 @@ getTodos()
 
 
 /***/ }),
-/* 19 */
+/* 20 */
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -1305,7 +1385,7 @@ createTodo(JSON.stringify(payload))()
 
 
 /***/ }),
-/* 20 */
+/* 21 */
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -1325,7 +1405,7 @@ getTodo1(token)
 
 
 /***/ }),
-/* 21 */
+/* 22 */
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -1345,7 +1425,7 @@ setTimeout(req.abort, 1)
 
 
 /***/ }),
-/* 22 */
+/* 23 */
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -1385,25 +1465,25 @@ const deleteTodosById = (id) => del("/todos/" + id)()();
 
 
 /***/ }),
-/* 23 */
+/* 24 */
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "bootstrapEditor": () => (/* binding */ bootstrapEditor),
-/* harmony export */   "sectionMarkdownInjector": () => (/* binding */ sectionMarkdownInjector),
+/* harmony export */   "eventuallyScrollTo": () => (/* binding */ eventuallyScrollTo),
 /* harmony export */   "prepareMarkup": () => (/* binding */ prepareMarkup),
-/* harmony export */   "eventuallyScrollTo": () => (/* binding */ eventuallyScrollTo)
+/* harmony export */   "sectionMarkdownInjector": () => (/* binding */ sectionMarkdownInjector)
 /* harmony export */ });
-/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(25);
-/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(28);
-/* harmony import */ var _codemirror_gutter__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(31);
-/* harmony import */ var _codemirror_lang_javascript__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(38);
-/* harmony import */ var _codemirror_history__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(32);
-/* harmony import */ var _codemirror_highlight__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(33);
-/* harmony import */ var _codemirror_commands__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(36);
-/* harmony import */ var _example_contents_cachedMdToHtmlFiles_json__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(24);
+/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(26);
+/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(29);
+/* harmony import */ var _codemirror_gutter__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(32);
+/* harmony import */ var _codemirror_lang_javascript__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(39);
+/* harmony import */ var _codemirror_history__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(33);
+/* harmony import */ var _codemirror_highlight__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(34);
+/* harmony import */ var _codemirror_commands__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(37);
+/* harmony import */ var _example_contents_cachedMdToHtmlFiles_json__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(25);
 
 
 
@@ -1483,20 +1563,19 @@ const eventuallyScrollTo = () => {
 }
 
 /***/ }),
-/* 24 */
+/* 25 */
 /***/ ((module) => {
 
 "use strict";
 module.exports = JSON.parse('{"abortion.md":"<h3 id=\\"abortion\\">Abortion</h3>\\n<p>The returned promise also has an <strong>abort</strong> method for aborting the request.</p>\\n","actions.md":"<h3 id=\\"action-setup\\">Action setup</h3>\\n<p>Preparation of our actions (as controller-actions) is quite terse.</p>\\n","config.md":"<h3 id=\\"base-configuration\\">Base Configuration</h3>\\n<p>Curry Request is conceived to centralize the management of api calls to common services (both in Node and in the browser);<br>in the js ecosystem the most popular package for dealing with XHR is Axios, but we weren&#39;t satisfied with it so this module.<br><br/><br>Similar to Axios you can configure instances, and through the pluggable fetch module it can easily implement interceptors.<br><br/><br>Differently from Axios, it is not such a high abstraction,<br>it is built with the assumption that <strong>fetch is good enough</strong>, and it doesn&#39;t transform inputs and outputs so drastically.<br>this is done through a simple curried function, with the fetch parameters ordered for our convenience.</p>\\n","example-from-motivation-post.md":"<h3 id=\\"random-examples\\">Random examples</h3>\\n<p>These are some examples from the <a href=\\"https://fcalo.com\\">package motivation post</a>.</p>\\n","http-call.md":"<h3 id=\\"http-call\\">Http call</h3>\\n<p>The returning function is the one that actually makes the http-request,<br>keep in mind that you can supply the optional token value that will be used in authorization header, with the<br><em>Bearer</em> prefix.</p>\\n","jwt-injection.md":"<h3 id=\\"jwt-injection\\">JWT injection</h3>\\n<p>The last function of the curried chain takes one optional parameter we called <strong>token</strong>;<br>if present, this wiil be concatenated with the <strong>Bearer</strong> prefix and used as value for the <strong>Authorization</strong> header.</p>\\n","post-payload.md":"<h3 id=\\"post-payload\\">Post payload</h3>\\n<p>Passing a string in the payload body parameter will be simply attached as-is,<br>but if we pass ad object or array it will be automatically serialized.</p>\\n"}');
 
 /***/ }),
-/* 25 */
+/* 26 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "Range": () => (/* reexport safe */ _codemirror_rangeset__WEBPACK_IMPORTED_MODULE_1__.Range),
 /* harmony export */   "BidiSpan": () => (/* binding */ BidiSpan),
 /* harmony export */   "BlockInfo": () => (/* binding */ BlockInfo),
 /* harmony export */   "BlockType": () => (/* binding */ BlockType),
@@ -1506,6 +1585,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "MatchDecorator": () => (/* binding */ MatchDecorator),
 /* harmony export */   "PluginField": () => (/* binding */ PluginField),
 /* harmony export */   "PluginFieldProvider": () => (/* binding */ PluginFieldProvider),
+/* harmony export */   "Range": () => (/* reexport safe */ _codemirror_rangeset__WEBPACK_IMPORTED_MODULE_1__.Range),
 /* harmony export */   "ViewPlugin": () => (/* binding */ ViewPlugin),
 /* harmony export */   "ViewUpdate": () => (/* binding */ ViewUpdate),
 /* harmony export */   "WidgetType": () => (/* binding */ WidgetType),
@@ -1518,11 +1598,11 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "placeholder": () => (/* binding */ placeholder),
 /* harmony export */   "runScopeHandlers": () => (/* binding */ runScopeHandlers)
 /* harmony export */ });
-/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(28);
-/* harmony import */ var _codemirror_text__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(29);
-/* harmony import */ var style_mod__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(26);
-/* harmony import */ var _codemirror_rangeset__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(27);
-/* harmony import */ var w3c_keyname__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(30);
+/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(29);
+/* harmony import */ var _codemirror_text__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(30);
+/* harmony import */ var style_mod__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(27);
+/* harmony import */ var _codemirror_rangeset__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(28);
+/* harmony import */ var w3c_keyname__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(31);
 
 
 
@@ -8346,7 +8426,7 @@ const __test = { HeightMap, HeightOracle, MeasuredHeights, QueryType, ChangedRan
 
 
 /***/ }),
-/* 26 */
+/* 27 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -8515,7 +8595,7 @@ class StyleSet {
 
 
 /***/ }),
-/* 27 */
+/* 28 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -8526,7 +8606,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "RangeSetBuilder": () => (/* binding */ RangeSetBuilder),
 /* harmony export */   "RangeValue": () => (/* binding */ RangeValue)
 /* harmony export */ });
-/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(28);
+/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(29);
 
 
 /**
@@ -9347,13 +9427,12 @@ function findMinIndex(value, array) {
 
 
 /***/ }),
-/* 28 */
+/* 29 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "Text": () => (/* reexport safe */ _codemirror_text__WEBPACK_IMPORTED_MODULE_0__.Text),
 /* harmony export */   "Annotation": () => (/* binding */ Annotation),
 /* harmony export */   "AnnotationType": () => (/* binding */ AnnotationType),
 /* harmony export */   "ChangeDesc": () => (/* binding */ ChangeDesc),
@@ -9369,10 +9448,11 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "StateEffect": () => (/* binding */ StateEffect),
 /* harmony export */   "StateEffectType": () => (/* binding */ StateEffectType),
 /* harmony export */   "StateField": () => (/* binding */ StateField),
+/* harmony export */   "Text": () => (/* reexport safe */ _codemirror_text__WEBPACK_IMPORTED_MODULE_0__.Text),
 /* harmony export */   "Transaction": () => (/* binding */ Transaction),
 /* harmony export */   "combineConfig": () => (/* binding */ combineConfig)
 /* harmony export */ });
-/* harmony import */ var _codemirror_text__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(29);
+/* harmony import */ var _codemirror_text__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(30);
 
 
 
@@ -11567,7 +11647,7 @@ combine = {}) {
 
 
 /***/ }),
-/* 29 */
+/* 30 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -12203,15 +12283,15 @@ class Line {
 
 
 /***/ }),
-/* 30 */
+/* 31 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "base": () => (/* binding */ base),
-/* harmony export */   "shift": () => (/* binding */ shift),
-/* harmony export */   "keyName": () => (/* binding */ keyName)
+/* harmony export */   "keyName": () => (/* binding */ keyName),
+/* harmony export */   "shift": () => (/* binding */ shift)
 /* harmony export */ });
 var base = {
   8: "Backspace",
@@ -12340,7 +12420,7 @@ function keyName(event) {
 
 
 /***/ }),
-/* 31 */
+/* 32 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -12354,9 +12434,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "lineNumberMarkers": () => (/* binding */ lineNumberMarkers),
 /* harmony export */   "lineNumbers": () => (/* binding */ lineNumbers)
 /* harmony export */ });
-/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(25);
-/* harmony import */ var _codemirror_rangeset__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(27);
-/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(28);
+/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(26);
+/* harmony import */ var _codemirror_rangeset__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(28);
+/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(29);
 
 
 
@@ -12780,7 +12860,7 @@ function highlightActiveLineGutter() {
 
 
 /***/ }),
-/* 32 */
+/* 33 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -12798,8 +12878,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "undoDepth": () => (/* binding */ undoDepth),
 /* harmony export */   "undoSelection": () => (/* binding */ undoSelection)
 /* harmony export */ });
-/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(28);
-/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(25);
+/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(29);
+/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(26);
 
 
 
@@ -13157,7 +13237,7 @@ const historyKeymap = [
 
 
 /***/ }),
-/* 33 */
+/* 34 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -13171,12 +13251,12 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "styleTags": () => (/* binding */ styleTags),
 /* harmony export */   "tags": () => (/* binding */ tags)
 /* harmony export */ });
-/* harmony import */ var lezer_tree__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(34);
-/* harmony import */ var style_mod__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(26);
-/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(25);
-/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(28);
-/* harmony import */ var _codemirror_language__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(35);
-/* harmony import */ var _codemirror_rangeset__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(27);
+/* harmony import */ var lezer_tree__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(35);
+/* harmony import */ var style_mod__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(27);
+/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(26);
+/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(29);
+/* harmony import */ var _codemirror_language__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(36);
+/* harmony import */ var _codemirror_rangeset__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(28);
 
 
 
@@ -14141,7 +14221,7 @@ const classHighlightStyle = /*@__PURE__*/HighlightStyle.define([
 
 
 /***/ }),
-/* 34 */
+/* 35 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -15166,7 +15246,7 @@ class StringInput {
 
 
 /***/ }),
-/* 35 */
+/* 36 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -15199,10 +15279,10 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "languageDataProp": () => (/* binding */ languageDataProp),
 /* harmony export */   "syntaxTree": () => (/* binding */ syntaxTree)
 /* harmony export */ });
-/* harmony import */ var lezer_tree__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(34);
-/* harmony import */ var _codemirror_text__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(29);
-/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(28);
-/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(25);
+/* harmony import */ var lezer_tree__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(35);
+/* harmony import */ var _codemirror_text__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(30);
+/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(29);
+/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(26);
 
 
 
@@ -16275,7 +16355,7 @@ function foldable(state, lineStart, lineEnd) {
 
 
 /***/ }),
-/* 36 */
+/* 37 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -16354,12 +16434,12 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "standardKeymap": () => (/* binding */ standardKeymap),
 /* harmony export */   "transposeChars": () => (/* binding */ transposeChars)
 /* harmony export */ });
-/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(28);
-/* harmony import */ var _codemirror_text__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(29);
-/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(25);
-/* harmony import */ var _codemirror_matchbrackets__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(37);
-/* harmony import */ var _codemirror_language__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(35);
-/* harmony import */ var lezer_tree__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(34);
+/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(29);
+/* harmony import */ var _codemirror_text__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(30);
+/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(26);
+/* harmony import */ var _codemirror_matchbrackets__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(38);
+/* harmony import */ var _codemirror_language__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(36);
+/* harmony import */ var lezer_tree__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(35);
 
 
 
@@ -17247,7 +17327,7 @@ const defaultTabBinding = { key: "Tab", run: insertTab, shift: indentSelection }
 
 
 /***/ }),
-/* 37 */
+/* 38 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -17256,10 +17336,10 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "bracketMatching": () => (/* binding */ bracketMatching),
 /* harmony export */   "matchBrackets": () => (/* binding */ matchBrackets)
 /* harmony export */ });
-/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(28);
-/* harmony import */ var _codemirror_language__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(35);
-/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(25);
-/* harmony import */ var lezer_tree__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(34);
+/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(29);
+/* harmony import */ var _codemirror_language__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(36);
+/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(26);
+/* harmony import */ var lezer_tree__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(35);
 
 
 
@@ -17397,7 +17477,7 @@ function matchPlainBrackets(state, pos, dir, tree, tokenType, maxScanDistance, b
 
 
 /***/ }),
-/* 38 */
+/* 39 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -17411,10 +17491,10 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "tsxLanguage": () => (/* binding */ tsxLanguage),
 /* harmony export */   "typescriptLanguage": () => (/* binding */ typescriptLanguage)
 /* harmony export */ });
-/* harmony import */ var lezer_javascript__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(39);
-/* harmony import */ var _codemirror_language__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(35);
-/* harmony import */ var _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(33);
-/* harmony import */ var _codemirror_autocomplete__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(41);
+/* harmony import */ var lezer_javascript__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(40);
+/* harmony import */ var _codemirror_language__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(36);
+/* harmony import */ var _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(34);
+/* harmony import */ var _codemirror_autocomplete__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(42);
 
 
 
@@ -17504,15 +17584,15 @@ const javascriptLanguage = _codemirror_language__WEBPACK_IMPORTED_MODULE_2__.Lez
                 Super: _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.atom,
                 BooleanLiteral: _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.bool,
                 this: _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.self,
-                null: _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.null,
+                null: _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags["null"],
                 Star: _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.modifier,
                 VariableName: _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.variableName,
-                "CallExpression/VariableName": _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.function(_codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.variableName),
+                "CallExpression/VariableName": _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags["function"](_codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.variableName),
                 VariableDefinition: _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.definition(_codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.variableName),
                 Label: _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.labelName,
                 PropertyName: _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.propertyName,
-                "CallExpression/MemberExpression/PropertyName": _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.function(_codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.propertyName),
-                "FunctionDeclaration/VariableDefinition": _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.function(_codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.definition(_codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.variableName)),
+                "CallExpression/MemberExpression/PropertyName": _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags["function"](_codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.propertyName),
+                "FunctionDeclaration/VariableDefinition": _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags["function"](_codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.definition(_codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.variableName)),
                 "ClassDeclaration/VariableDefinition": _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.definition(_codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.className),
                 PropertyNameDefinition: _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.definition(_codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.propertyName),
                 UpdateOp: _codemirror_highlight__WEBPACK_IMPORTED_MODULE_3__.tags.updateOperator,
@@ -17630,7 +17710,7 @@ function translateDiagnostic(input, doc, offset) {
 
 
 /***/ }),
-/* 39 */
+/* 40 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -17638,7 +17718,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "parser": () => (/* binding */ parser)
 /* harmony export */ });
-/* harmony import */ var lezer__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(40);
+/* harmony import */ var lezer__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(41);
 
 
 // This file was generated by lezer-generator. You probably shouldn't edit it.
@@ -17758,24 +17838,24 @@ const parser = lezer__WEBPACK_IMPORTED_MODULE_0__.Parser.deserialize({
 
 
 /***/ }),
-/* 40 */
+/* 41 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "ContextTracker": () => (/* binding */ ContextTracker),
+/* harmony export */   "ExternalTokenizer": () => (/* binding */ ExternalTokenizer),
 /* harmony export */   "NodeProp": () => (/* reexport safe */ lezer_tree__WEBPACK_IMPORTED_MODULE_0__.NodeProp),
 /* harmony export */   "NodeSet": () => (/* reexport safe */ lezer_tree__WEBPACK_IMPORTED_MODULE_0__.NodeSet),
 /* harmony export */   "NodeType": () => (/* reexport safe */ lezer_tree__WEBPACK_IMPORTED_MODULE_0__.NodeType),
-/* harmony export */   "Tree": () => (/* reexport safe */ lezer_tree__WEBPACK_IMPORTED_MODULE_0__.Tree),
-/* harmony export */   "TreeCursor": () => (/* reexport safe */ lezer_tree__WEBPACK_IMPORTED_MODULE_0__.TreeCursor),
-/* harmony export */   "ContextTracker": () => (/* binding */ ContextTracker),
-/* harmony export */   "ExternalTokenizer": () => (/* binding */ ExternalTokenizer),
 /* harmony export */   "Parser": () => (/* binding */ Parser),
 /* harmony export */   "Stack": () => (/* binding */ Stack),
-/* harmony export */   "Token": () => (/* binding */ Token)
+/* harmony export */   "Token": () => (/* binding */ Token),
+/* harmony export */   "Tree": () => (/* reexport safe */ lezer_tree__WEBPACK_IMPORTED_MODULE_0__.Tree),
+/* harmony export */   "TreeCursor": () => (/* reexport safe */ lezer_tree__WEBPACK_IMPORTED_MODULE_0__.TreeCursor)
 /* harmony export */ });
-/* harmony import */ var lezer_tree__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(34);
+/* harmony import */ var lezer_tree__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(35);
 
 
 
@@ -19279,7 +19359,7 @@ function findFinished(stacks) {
 
 
 /***/ }),
-/* 41 */
+/* 42 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -19305,11 +19385,11 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "snippetKeymap": () => (/* binding */ snippetKeymap),
 /* harmony export */   "startCompletion": () => (/* binding */ startCompletion)
 /* harmony export */ });
-/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(28);
-/* harmony import */ var _codemirror_text__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(29);
-/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(25);
-/* harmony import */ var _codemirror_tooltip__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(42);
-/* harmony import */ var _codemirror_language__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(35);
+/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(29);
+/* harmony import */ var _codemirror_text__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(30);
+/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(26);
+/* harmony import */ var _codemirror_tooltip__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(43);
+/* harmony import */ var _codemirror_language__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(36);
 
 
 
@@ -20638,7 +20718,7 @@ function currentCompletions(state) {
 
 
 /***/ }),
-/* 42 */
+/* 43 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -20648,8 +20728,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "showTooltip": () => (/* binding */ showTooltip),
 /* harmony export */   "tooltips": () => (/* binding */ tooltips)
 /* harmony export */ });
-/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(25);
-/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(28);
+/* harmony import */ var _codemirror_view__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(26);
+/* harmony import */ var _codemirror_state__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(29);
 
 
 
@@ -20956,7 +21036,7 @@ function hoverTooltip(source, options = {}) {
 
 
 /***/ }),
-/* 43 */
+/* 44 */
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -21070,6 +21150,11 @@ class Logger {
 /******/ 		};
 /******/ 	})();
 /******/ 	
+/******/ 	/* webpack/runtime/nonce */
+/******/ 	(() => {
+/******/ 		__webpack_require__.nc = undefined;
+/******/ 	})();
+/******/ 	
 /************************************************************************/
 var __webpack_exports__ = {};
 // This entry need to be wrapped in an IIFE because it need to be in strict mode.
@@ -21077,8 +21162,8 @@ var __webpack_exports__ = {};
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var modern_normalize_modern_normalize_css__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(1);
-/* harmony import */ var _css_style_css__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(10);
-/* harmony import */ var _editor_index_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(12);
+/* harmony import */ var _css_style_css__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(11);
+/* harmony import */ var _editor__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(13);
 
 
 

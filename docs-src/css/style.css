@@ -1,4 +1,8 @@
 
+body {
+	display: initial;
+}
+
 :root {
   --main-color: #fff;
   --main-bg: #008700;
@@ -146,6 +150,8 @@ main::before {
   color: lime;
   width: 100%;
   padding: 0 2rem;
+  max-height: 40vh;
+  overflow-y: scroll;
 }
 
 .feature .output pre {
